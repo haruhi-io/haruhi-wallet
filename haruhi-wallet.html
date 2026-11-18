@@ -1,0 +1,2745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- No network access at all: nothing can be fetched or sent from this page. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Haruhi Wallet</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #17181a; --muted: #5d6066; --line: #dcdcd7;
+  --accent: #b4232c; --accent-ink: #ffffff; --ok: #1d7a46; --warn-bg: #fdecec; --warn-ink: #8a1820;
+  --ok-bg: #e8f5ed; --code: #f0f0ec;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121315; --panel: #1b1c1f; --ink: #ececea; --muted: #a0a3a8; --line: #33353a;
+    --accent: #e0525b; --accent-ink: #121315; --ok: #5fcf8d; --warn-bg: #3a1a1c; --warn-ink: #ffb4b8;
+    --ok-bg: #16301f; --code: #24262a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+header h1 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); }
+code, .mono { font-family: var(--mono); font-size: 13.5px; }
+.banner { margin: 16px 0; padding: 10px 14px; border-radius: 8px; font-weight: 600; }
+.banner.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.banner.ok { background: var(--ok-bg); color: var(--ok); }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin: 20px 0 0; }
+nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; font: inherit;
+  color: var(--muted); cursor: pointer; margin-bottom: -1px; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+section.tab { display: none; padding-top: 20px; }
+section.tab.active { display: block; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 0 0 16px; }
+.panel h2 { font-size: 16px; margin: 0 0 10px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+label.grow { flex: 1 1 260px; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 10px; min-width: 0; }
+textarea { font-family: var(--mono); font-size: 14px; resize: vertical; width: 100%; }
+button.primary, button.secondary { font: inherit; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); font-weight: 600; }
+button.secondary { background: none; color: var(--ink); border: 1px solid var(--line); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 8px 0 4px;
+  padding: 0; list-style: none; counter-reset: w; }
+.words li { counter-increment: w; font-family: var(--mono); padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.words li::before { content: counter(w) "."; color: var(--muted); display: inline-block; min-width: 2.2em; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+td.addr { font-family: var(--mono); font-size: 13px; word-break: break-all; }
+.note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+.error { color: var(--warn-ink); background: var(--warn-bg); padding: 8px 10px; border-radius: 6px; margin: 10px 0 0; }
+pre.out { background: var(--code); border-radius: 6px; padding: 10px; overflow-x: auto; white-space: pre-wrap;
+  word-break: break-all; font-family: var(--mono); font-size: 12.5px; margin: 8px 0; }
+ul.checks { list-style: none; padding: 0; margin: 0; }
+ul.checks li { padding: 3px 0; font-family: var(--mono); font-size: 13px; }
+ul.checks li.pass::before { content: "PASS  "; color: var(--ok); font-weight: 700; }
+ul.checks li.fail::before { content: "FAIL  "; color: var(--accent); font-weight: 700; }
+ol.steps { padding-left: 20px; margin: 6px 0; }
+ol.steps li { margin: 4px 0; }
+.hidden { display: none !important; }
+#paper { display: none; }
+
+@media print {
+  body { background: #fff; color: #000; }
+  main > *:not(#paper) { display: none !important; }
+  #paper { display: block !important; font: 12pt/1.45 var(--sans); }
+  #paper h1 { font-size: 18pt; margin: 0 0 4pt; }
+  #paper .words li { border-color: #999; }
+  #paper td, #paper th { border-color: #999; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Haruhi Wallet <span class="mono" style="font-size:13px;color:var(--muted)">v0.1.0</span></h1>
+    <p>Offline seed phrase, address and transfer signer for Haruhi (HRH). One file, no network, no installs.</p>
+  </header>
+
+  <div id="net-banner" class="banner warn hidden">This computer is online. For cold storage, save this file, disconnect from the network (or use a computer that never connects), then reopen it.</div>
+  <div id="test-banner" class="banner warn">Running self-test…</div>
+
+  <nav role="tablist">
+    <button role="tab" data-tab="new" aria-selected="true">New wallet</button>
+    <button role="tab" data-tab="check" aria-selected="false">Check a seed phrase</button>
+    <button role="tab" data-tab="sign" aria-selected="false">Sign a transfer</button>
+    <button role="tab" data-tab="about" aria-selected="false">How it works</button>
+  </nav>
+
+  <!-- ============================================================ new -->
+  <section class="tab active" id="tab-new">
+    <div class="panel">
+      <h2>Create a seed phrase</h2>
+      <div class="row">
+        <label>Words
+          <select id="new-words"><option value="24" selected>24 (recommended)</option><option value="12">12</option></select>
+        </label>
+        <label>Network
+          <select id="new-net"><option value="mainnet" selected>mainnet (haruhi1…)</option><option value="testnet">testnet (testhrh1…)</option></select>
+        </label>
+        <label>Addresses
+          <select id="new-count"><option>1</option><option selected>3</option><option>5</option><option>10</option></select>
+        </label>
+        <button class="primary" id="new-go" disabled>Generate</button>
+      </div>
+      <p class="note">Randomness comes from your browser's <code>crypto.getRandomValues</code>. Nothing is saved anywhere: closing the tab erases it.</p>
+    </div>
+
+    <div id="new-out" class="hidden">
+      <div class="panel">
+        <h2>Your seed phrase</h2>
+        <p class="note" style="margin-top:0">Write these words down, in order, on paper. They restore every address below. Anyone who sees them can spend your coins. Never type them into a website.</p>
+        <ol class="words" id="new-words-list"></ol>
+      </div>
+      <div class="panel">
+        <h2>Addresses</h2>
+        <table><thead><tr><th>Path</th><th>Address</th></tr></thead><tbody id="new-addr"></tbody></table>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="new-print">Print paper wallet</button>
+          <button class="secondary" id="new-clear">Clear</button>
+        </div>
+        <p class="note">Before you send coins here, check the backup: clear this page, open <strong>Check a seed phrase</strong>, type the words back in from your paper, and confirm you get the same addresses.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ check -->
+  <section class="tab" id="tab-check">
+    <div class="panel">
+      <h2>Check or restore a seed phrase</h2>
+      <label>Seed phrase (12 or 24 words)
+        <textarea id="chk-phrase" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      </label>
+      <div class="row" style="margin-top:10px">
+        <label>Network
+          <select id="chk-net"><option value="mainnet" selected>mainnet</option><option value="testnet">testnet</option></select>
+        </label>
+        <label>Addresses
+          <select id="chk-count"><option>1</option><option selected>3</option><option>5</option><option>10</option><option>20</option></select>
+        </label>
+        <button class="primary" id="chk-go" disabled>Show addresses</button>
+        <button class="secondary" id="chk-clear">Clear</button>
+      </div>
+      <div id="chk-err" class="error hidden"></div>
+    </div>
+    <div class="panel hidden" id="chk-out">
+      <h2>Addresses</h2>
+      <table><thead><tr><th>Path</th><th>Address</th></tr></thead><tbody id="chk-addr"></tbody></table>
+      <p class="note">These match the Python wallet (<code>haruhi-wallet restore</code>) and any wallet that follows the same derivation.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ sign -->
+  <section class="tab" id="tab-sign">
+    <div class="panel">
+      <h2>Sign a transfer offline</h2>
+      <ol class="steps">
+        <li>On an <em>online</em> computer, look up the sending address's next nonce: <code>GET &lt;node&gt;/wallet/nonce/&lt;address&gt;</code>.</li>
+        <li>Here, offline: enter the seed phrase and the transfer, then sign.</li>
+        <li>Carry the signed JSON to the online computer (USB stick, or copy it by hand) and broadcast it. The JSON holds no secret.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <label>Seed phrase
+        <textarea id="sig-phrase" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      </label>
+      <div class="row" style="margin-top:10px">
+        <label>Network
+          <select id="sig-net"><option value="mainnet" selected>mainnet</option><option value="testnet">testnet</option></select>
+        </label>
+        <label>From account
+          <input id="sig-acct" type="number" min="0" max="2147483647" value="0" style="width:7em">
+        </label>
+        <label>Nonce
+          <input id="sig-nonce" type="number" min="0" value="0" style="width:7em">
+        </label>
+      </div>
+      <div id="sig-from" class="note mono"></div>
+      <div class="row" style="margin-top:10px">
+        <label class="grow">To address
+          <input id="sig-to" autocomplete="off" spellcheck="false" placeholder="haruhi1…">
+        </label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label>Amount (HRH)
+          <input id="sig-amount" inputmode="decimal" autocomplete="off" placeholder="1.5" style="width:11em">
+        </label>
+        <label>Fee (HRH)
+          <input id="sig-fee" inputmode="decimal" autocomplete="off" value="0.00001" style="width:11em">
+        </label>
+        <button class="primary" id="sig-go" disabled>Sign</button>
+        <button class="secondary" id="sig-clear">Clear</button>
+      </div>
+      <p class="note">1 HRH = 100,000,000 atoms. The network's minimum fee is 0.00001 HRH (1,000 atoms). Fees are burned.</p>
+      <div id="sig-err" class="error hidden"></div>
+    </div>
+    <div class="panel hidden" id="sig-out">
+      <h2>Signed transfer</h2>
+      <table><tbody id="sig-summary"></tbody></table>
+      <pre class="out" id="sig-json"></pre>
+      <div class="row">
+        <button class="primary" id="sig-download">Save tx.json</button>
+        <button class="secondary" id="sig-copy">Copy</button>
+      </div>
+      <p class="note">Broadcast from the online computer:</p>
+      <pre class="out">curl -X POST &lt;node&gt;/tx/send -H "Content-Type: application/json" -d @tx.json</pre>
+    </div>
+  </section>
+
+  <!-- ============================================================ about -->
+  <section class="tab" id="tab-about">
+    <div class="panel">
+      <h2>Derivation</h2>
+      <table><tbody>
+        <tr><th>Seed phrase</th><td>BIP-39, English word list, empty passphrase</td></tr>
+        <tr><th>Keys</th><td>Ed25519, SLIP-0010 derivation (all steps hardened)</td></tr>
+        <tr><th>Path</th><td><code>m/44'/1031'/&lt;account&gt;'</code> mainnet (SLIP-0044 coin type 1031), <code>m/44'/1'/&lt;account&gt;'</code> testnet</td></tr>
+        <tr><th>Address</th><td>bech32 (BIP-173), witness version 0, program = first 20 bytes of SHA-256(public key); prefix <code>haruhi</code> mainnet, <code>testhrh</code> testnet</td></tr>
+        <tr><th>Transfer</th><td>Ed25519 signature over the canonical JSON (sorted keys, no spaces) of <code>atoms, created_at, fee_atoms, from_address, nonce, public_key_hex, to_address</code>; txid = SHA-256(payload ‖ signature)</td></tr>
+      </tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Self-test</h2>
+      <p class="note" style="margin-top:0">Run every time this file opens. Every button stays disabled unless all checks pass. The fixed vectors are the same ones the Python wallet's test suite checks (<code>tests/vectors.json</code>).</p>
+      <ul class="checks" id="checks"></ul>
+    </div>
+    <div class="panel">
+      <h2>Cold storage checklist</h2>
+      <ol class="steps">
+        <li>Get this file from the official repository and check it against the published release before use.</li>
+        <li>Open it on a computer that is offline: unplugged, Wi-Fi off. The banner at the top turns green when the browser reports no network.</li>
+        <li>Generate a 24-word phrase, write it on paper (or print the paper wallet on a printer that is not networked).</li>
+        <li>Clear the page and check the phrase back in to confirm the backup. Then close the browser.</li>
+        <li>Send coins to the address from any online wallet. Receiving needs no secret.</li>
+        <li>To spend, sign offline with <strong>Sign a transfer</strong> and broadcast the JSON from an online computer.</li>
+      </ol>
+      <p class="note">This page cannot make network requests: its Content Security Policy blocks every connection. Seed phrases and keys only ever exist in this tab's memory.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ print -->
+  <div id="paper">
+    <h1>Haruhi (HRH) paper wallet</h1>
+    <p id="paper-meta"></p>
+    <h2 style="font-size:13pt">Seed phrase: keep secret</h2>
+    <ol class="words" id="paper-words"></ol>
+    <h2 style="font-size:13pt">Receiving addresses</h2>
+    <table><thead><tr><th>Path</th><th>Address</th></tr></thead><tbody id="paper-addr"></tbody></table>
+    <p style="font-size:10pt;margin-top:14pt">Derivation: BIP-39 (no passphrase) → SLIP-0010 Ed25519 → path shown. Restore with the Haruhi Wallet (haruhi-wallet.html or <code>haruhi-wallet restore</code>). Anyone holding these words can spend the coins.</p>
+  </div>
+</main>
+
+<script type="application/json" id="vectors">{"mnemonic":"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about","passphrase":"","accounts":[{"network":"mainnet","path":"m/44'/1031'/0'","private_key_hex":"e19c5f50e599d412a4d116f4709f18bf9f8714a2fe5b9dfb67ed919ea2ad0271","public_key_hex":"7a77356f2b881ab4c55d3b109d75ea8c9a3f9cabf2c6ed3abf3906f898d8d848","address":"haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j"},{"network":"mainnet","path":"m/44'/1031'/1'","private_key_hex":"c4ae066becade3cb8fd4b87cba649ed6b84768b13ddbaa040ed0e3336945172c","public_key_hex":"8b153470e18fe3d60437364f64de459eec62cf06752fb9cd5810cf56ec2e6559","address":"haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma"},{"network":"testnet","path":"m/44'/1'/0'","public_key_hex":"a90eb13b090b4d4c31ae87d864c0cd8db25216c90c1ce6fbfd04ddcdc1aa110c","address":"testhrh1qfd6fmfa6ykka7qtqrmsk6wm0rmkfvqlan9z6ph"}],"transfer":{"network":"mainnet","from_path":"m/44'/1031'/0'","from_address":"haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j","to_address":"haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma","atoms":150000000,"fee_atoms":1000,"nonce":0,"created_at":1763500000.125,"signing_payload":"{\"atoms\":150000000,\"created_at\":1763500000.125,\"fee_atoms\":1000,\"from_address\":\"haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j\",\"nonce\":0,\"public_key_hex\":\"7a77356f2b881ab4c55d3b109d75ea8c9a3f9cabf2c6ed3abf3906f898d8d848\",\"to_address\":\"haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma\"}","signature_hex":"e0022503f7930ff4faf7c357c5e95d037068e1d135eef91b2e8ed6af50de9127727c4ac518ef29427cccbb548476b57a7021f0657509417ade846932c9029c07","txid":"0728b3607840c9dfa74f3c73ff91740a271bd80153d007c0523a541fa846000e"}}</script>
+<script type="text/plain" id="wordlist">
+abandon
+ability
+able
+about
+above
+absent
+absorb
+abstract
+absurd
+abuse
+access
+accident
+account
+accuse
+achieve
+acid
+acoustic
+acquire
+across
+act
+action
+actor
+actress
+actual
+adapt
+add
+addict
+address
+adjust
+admit
+adult
+advance
+advice
+aerobic
+affair
+afford
+afraid
+again
+age
+agent
+agree
+ahead
+aim
+air
+airport
+aisle
+alarm
+album
+alcohol
+alert
+alien
+all
+alley
+allow
+almost
+alone
+alpha
+already
+also
+alter
+always
+amateur
+amazing
+among
+amount
+amused
+analyst
+anchor
+ancient
+anger
+angle
+angry
+animal
+ankle
+announce
+annual
+another
+answer
+antenna
+antique
+anxiety
+any
+apart
+apology
+appear
+apple
+approve
+april
+arch
+arctic
+area
+arena
+argue
+arm
+armed
+armor
+army
+around
+arrange
+arrest
+arrive
+arrow
+art
+artefact
+artist
+artwork
+ask
+aspect
+assault
+asset
+assist
+assume
+asthma
+athlete
+atom
+attack
+attend
+attitude
+attract
+auction
+audit
+august
+aunt
+author
+auto
+autumn
+average
+avocado
+avoid
+awake
+aware
+away
+awesome
+awful
+awkward
+axis
+baby
+bachelor
+bacon
+badge
+bag
+balance
+balcony
+ball
+bamboo
+banana
+banner
+bar
+barely
+bargain
+barrel
+base
+basic
+basket
+battle
+beach
+bean
+beauty
+because
+become
+beef
+before
+begin
+behave
+behind
+believe
+below
+belt
+bench
+benefit
+best
+betray
+better
+between
+beyond
+bicycle
+bid
+bike
+bind
+biology
+bird
+birth
+bitter
+black
+blade
+blame
+blanket
+blast
+bleak
+bless
+blind
+blood
+blossom
+blouse
+blue
+blur
+blush
+board
+boat
+body
+boil
+bomb
+bone
+bonus
+book
+boost
+border
+boring
+borrow
+boss
+bottom
+bounce
+box
+boy
+bracket
+brain
+brand
+brass
+brave
+bread
+breeze
+brick
+bridge
+brief
+bright
+bring
+brisk
+broccoli
+broken
+bronze
+broom
+brother
+brown
+brush
+bubble
+buddy
+budget
+buffalo
+build
+bulb
+bulk
+bullet
+bundle
+bunker
+burden
+burger
+burst
+bus
+business
+busy
+butter
+buyer
+buzz
+cabbage
+cabin
+cable
+cactus
+cage
+cake
+call
+calm
+camera
+camp
+can
+canal
+cancel
+candy
+cannon
+canoe
+canvas
+canyon
+capable
+capital
+captain
+car
+carbon
+card
+cargo
+carpet
+carry
+cart
+case
+cash
+casino
+castle
+casual
+cat
+catalog
+catch
+category
+cattle
+caught
+cause
+caution
+cave
+ceiling
+celery
+cement
+census
+century
+cereal
+certain
+chair
+chalk
+champion
+change
+chaos
+chapter
+charge
+chase
+chat
+cheap
+check
+cheese
+chef
+cherry
+chest
+chicken
+chief
+child
+chimney
+choice
+choose
+chronic
+chuckle
+chunk
+churn
+cigar
+cinnamon
+circle
+citizen
+city
+civil
+claim
+clap
+clarify
+claw
+clay
+clean
+clerk
+clever
+click
+client
+cliff
+climb
+clinic
+clip
+clock
+clog
+close
+cloth
+cloud
+clown
+club
+clump
+cluster
+clutch
+coach
+coast
+coconut
+code
+coffee
+coil
+coin
+collect
+color
+column
+combine
+come
+comfort
+comic
+common
+company
+concert
+conduct
+confirm
+congress
+connect
+consider
+control
+convince
+cook
+cool
+copper
+copy
+coral
+core
+corn
+correct
+cost
+cotton
+couch
+country
+couple
+course
+cousin
+cover
+coyote
+crack
+cradle
+craft
+cram
+crane
+crash
+crater
+crawl
+crazy
+cream
+credit
+creek
+crew
+cricket
+crime
+crisp
+critic
+crop
+cross
+crouch
+crowd
+crucial
+cruel
+cruise
+crumble
+crunch
+crush
+cry
+crystal
+cube
+culture
+cup
+cupboard
+curious
+current
+curtain
+curve
+cushion
+custom
+cute
+cycle
+dad
+damage
+damp
+dance
+danger
+daring
+dash
+daughter
+dawn
+day
+deal
+debate
+debris
+decade
+december
+decide
+decline
+decorate
+decrease
+deer
+defense
+define
+defy
+degree
+delay
+deliver
+demand
+demise
+denial
+dentist
+deny
+depart
+depend
+deposit
+depth
+deputy
+derive
+describe
+desert
+design
+desk
+despair
+destroy
+detail
+detect
+develop
+device
+devote
+diagram
+dial
+diamond
+diary
+dice
+diesel
+diet
+differ
+digital
+dignity
+dilemma
+dinner
+dinosaur
+direct
+dirt
+disagree
+discover
+disease
+dish
+dismiss
+disorder
+display
+distance
+divert
+divide
+divorce
+dizzy
+doctor
+document
+dog
+doll
+dolphin
+domain
+donate
+donkey
+donor
+door
+dose
+double
+dove
+draft
+dragon
+drama
+drastic
+draw
+dream
+dress
+drift
+drill
+drink
+drip
+drive
+drop
+drum
+dry
+duck
+dumb
+dune
+during
+dust
+dutch
+duty
+dwarf
+dynamic
+eager
+eagle
+early
+earn
+earth
+easily
+east
+easy
+echo
+ecology
+economy
+edge
+edit
+educate
+effort
+egg
+eight
+either
+elbow
+elder
+electric
+elegant
+element
+elephant
+elevator
+elite
+else
+embark
+embody
+embrace
+emerge
+emotion
+employ
+empower
+empty
+enable
+enact
+end
+endless
+endorse
+enemy
+energy
+enforce
+engage
+engine
+enhance
+enjoy
+enlist
+enough
+enrich
+enroll
+ensure
+enter
+entire
+entry
+envelope
+episode
+equal
+equip
+era
+erase
+erode
+erosion
+error
+erupt
+escape
+essay
+essence
+estate
+eternal
+ethics
+evidence
+evil
+evoke
+evolve
+exact
+example
+excess
+exchange
+excite
+exclude
+excuse
+execute
+exercise
+exhaust
+exhibit
+exile
+exist
+exit
+exotic
+expand
+expect
+expire
+explain
+expose
+express
+extend
+extra
+eye
+eyebrow
+fabric
+face
+faculty
+fade
+faint
+faith
+fall
+false
+fame
+family
+famous
+fan
+fancy
+fantasy
+farm
+fashion
+fat
+fatal
+father
+fatigue
+fault
+favorite
+feature
+february
+federal
+fee
+feed
+feel
+female
+fence
+festival
+fetch
+fever
+few
+fiber
+fiction
+field
+figure
+file
+film
+filter
+final
+find
+fine
+finger
+finish
+fire
+firm
+first
+fiscal
+fish
+fit
+fitness
+fix
+flag
+flame
+flash
+flat
+flavor
+flee
+flight
+flip
+float
+flock
+floor
+flower
+fluid
+flush
+fly
+foam
+focus
+fog
+foil
+fold
+follow
+food
+foot
+force
+forest
+forget
+fork
+fortune
+forum
+forward
+fossil
+foster
+found
+fox
+fragile
+frame
+frequent
+fresh
+friend
+fringe
+frog
+front
+frost
+frown
+frozen
+fruit
+fuel
+fun
+funny
+furnace
+fury
+future
+gadget
+gain
+galaxy
+gallery
+game
+gap
+garage
+garbage
+garden
+garlic
+garment
+gas
+gasp
+gate
+gather
+gauge
+gaze
+general
+genius
+genre
+gentle
+genuine
+gesture
+ghost
+giant
+gift
+giggle
+ginger
+giraffe
+girl
+give
+glad
+glance
+glare
+glass
+glide
+glimpse
+globe
+gloom
+glory
+glove
+glow
+glue
+goat
+goddess
+gold
+good
+goose
+gorilla
+gospel
+gossip
+govern
+gown
+grab
+grace
+grain
+grant
+grape
+grass
+gravity
+great
+green
+grid
+grief
+grit
+grocery
+group
+grow
+grunt
+guard
+guess
+guide
+guilt
+guitar
+gun
+gym
+habit
+hair
+half
+hammer
+hamster
+hand
+happy
+harbor
+hard
+harsh
+harvest
+hat
+have
+hawk
+hazard
+head
+health
+heart
+heavy
+hedgehog
+height
+hello
+helmet
+help
+hen
+hero
+hidden
+high
+hill
+hint
+hip
+hire
+history
+hobby
+hockey
+hold
+hole
+holiday
+hollow
+home
+honey
+hood
+hope
+horn
+horror
+horse
+hospital
+host
+hotel
+hour
+hover
+hub
+huge
+human
+humble
+humor
+hundred
+hungry
+hunt
+hurdle
+hurry
+hurt
+husband
+hybrid
+ice
+icon
+idea
+identify
+idle
+ignore
+ill
+illegal
+illness
+image
+imitate
+immense
+immune
+impact
+impose
+improve
+impulse
+inch
+include
+income
+increase
+index
+indicate
+indoor
+industry
+infant
+inflict
+inform
+inhale
+inherit
+initial
+inject
+injury
+inmate
+inner
+innocent
+input
+inquiry
+insane
+insect
+inside
+inspire
+install
+intact
+interest
+into
+invest
+invite
+involve
+iron
+island
+isolate
+issue
+item
+ivory
+jacket
+jaguar
+jar
+jazz
+jealous
+jeans
+jelly
+jewel
+job
+join
+joke
+journey
+joy
+judge
+juice
+jump
+jungle
+junior
+junk
+just
+kangaroo
+keen
+keep
+ketchup
+key
+kick
+kid
+kidney
+kind
+kingdom
+kiss
+kit
+kitchen
+kite
+kitten
+kiwi
+knee
+knife
+knock
+know
+lab
+label
+labor
+ladder
+lady
+lake
+lamp
+language
+laptop
+large
+later
+latin
+laugh
+laundry
+lava
+law
+lawn
+lawsuit
+layer
+lazy
+leader
+leaf
+learn
+leave
+lecture
+left
+leg
+legal
+legend
+leisure
+lemon
+lend
+length
+lens
+leopard
+lesson
+letter
+level
+liar
+liberty
+library
+license
+life
+lift
+light
+like
+limb
+limit
+link
+lion
+liquid
+list
+little
+live
+lizard
+load
+loan
+lobster
+local
+lock
+logic
+lonely
+long
+loop
+lottery
+loud
+lounge
+love
+loyal
+lucky
+luggage
+lumber
+lunar
+lunch
+luxury
+lyrics
+machine
+mad
+magic
+magnet
+maid
+mail
+main
+major
+make
+mammal
+man
+manage
+mandate
+mango
+mansion
+manual
+maple
+marble
+march
+margin
+marine
+market
+marriage
+mask
+mass
+master
+match
+material
+math
+matrix
+matter
+maximum
+maze
+meadow
+mean
+measure
+meat
+mechanic
+medal
+media
+melody
+melt
+member
+memory
+mention
+menu
+mercy
+merge
+merit
+merry
+mesh
+message
+metal
+method
+middle
+midnight
+milk
+million
+mimic
+mind
+minimum
+minor
+minute
+miracle
+mirror
+misery
+miss
+mistake
+mix
+mixed
+mixture
+mobile
+model
+modify
+mom
+moment
+monitor
+monkey
+monster
+month
+moon
+moral
+more
+morning
+mosquito
+mother
+motion
+motor
+mountain
+mouse
+move
+movie
+much
+muffin
+mule
+multiply
+muscle
+museum
+mushroom
+music
+must
+mutual
+myself
+mystery
+myth
+naive
+name
+napkin
+narrow
+nasty
+nation
+nature
+near
+neck
+need
+negative
+neglect
+neither
+nephew
+nerve
+nest
+net
+network
+neutral
+never
+news
+next
+nice
+night
+noble
+noise
+nominee
+noodle
+normal
+north
+nose
+notable
+note
+nothing
+notice
+novel
+now
+nuclear
+number
+nurse
+nut
+oak
+obey
+object
+oblige
+obscure
+observe
+obtain
+obvious
+occur
+ocean
+october
+odor
+off
+offer
+office
+often
+oil
+okay
+old
+olive
+olympic
+omit
+once
+one
+onion
+online
+only
+open
+opera
+opinion
+oppose
+option
+orange
+orbit
+orchard
+order
+ordinary
+organ
+orient
+original
+orphan
+ostrich
+other
+outdoor
+outer
+output
+outside
+oval
+oven
+over
+own
+owner
+oxygen
+oyster
+ozone
+pact
+paddle
+page
+pair
+palace
+palm
+panda
+panel
+panic
+panther
+paper
+parade
+parent
+park
+parrot
+party
+pass
+patch
+path
+patient
+patrol
+pattern
+pause
+pave
+payment
+peace
+peanut
+pear
+peasant
+pelican
+pen
+penalty
+pencil
+people
+pepper
+perfect
+permit
+person
+pet
+phone
+photo
+phrase
+physical
+piano
+picnic
+picture
+piece
+pig
+pigeon
+pill
+pilot
+pink
+pioneer
+pipe
+pistol
+pitch
+pizza
+place
+planet
+plastic
+plate
+play
+please
+pledge
+pluck
+plug
+plunge
+poem
+poet
+point
+polar
+pole
+police
+pond
+pony
+pool
+popular
+portion
+position
+possible
+post
+potato
+pottery
+poverty
+powder
+power
+practice
+praise
+predict
+prefer
+prepare
+present
+pretty
+prevent
+price
+pride
+primary
+print
+priority
+prison
+private
+prize
+problem
+process
+produce
+profit
+program
+project
+promote
+proof
+property
+prosper
+protect
+proud
+provide
+public
+pudding
+pull
+pulp
+pulse
+pumpkin
+punch
+pupil
+puppy
+purchase
+purity
+purpose
+purse
+push
+put
+puzzle
+pyramid
+quality
+quantum
+quarter
+question
+quick
+quit
+quiz
+quote
+rabbit
+raccoon
+race
+rack
+radar
+radio
+rail
+rain
+raise
+rally
+ramp
+ranch
+random
+range
+rapid
+rare
+rate
+rather
+raven
+raw
+razor
+ready
+real
+reason
+rebel
+rebuild
+recall
+receive
+recipe
+record
+recycle
+reduce
+reflect
+reform
+refuse
+region
+regret
+regular
+reject
+relax
+release
+relief
+rely
+remain
+remember
+remind
+remove
+render
+renew
+rent
+reopen
+repair
+repeat
+replace
+report
+require
+rescue
+resemble
+resist
+resource
+response
+result
+retire
+retreat
+return
+reunion
+reveal
+review
+reward
+rhythm
+rib
+ribbon
+rice
+rich
+ride
+ridge
+rifle
+right
+rigid
+ring
+riot
+ripple
+risk
+ritual
+rival
+river
+road
+roast
+robot
+robust
+rocket
+romance
+roof
+rookie
+room
+rose
+rotate
+rough
+round
+route
+royal
+rubber
+rude
+rug
+rule
+run
+runway
+rural
+sad
+saddle
+sadness
+safe
+sail
+salad
+salmon
+salon
+salt
+salute
+same
+sample
+sand
+satisfy
+satoshi
+sauce
+sausage
+save
+say
+scale
+scan
+scare
+scatter
+scene
+scheme
+school
+science
+scissors
+scorpion
+scout
+scrap
+screen
+script
+scrub
+sea
+search
+season
+seat
+second
+secret
+section
+security
+seed
+seek
+segment
+select
+sell
+seminar
+senior
+sense
+sentence
+series
+service
+session
+settle
+setup
+seven
+shadow
+shaft
+shallow
+share
+shed
+shell
+sheriff
+shield
+shift
+shine
+ship
+shiver
+shock
+shoe
+shoot
+shop
+short
+shoulder
+shove
+shrimp
+shrug
+shuffle
+shy
+sibling
+sick
+side
+siege
+sight
+sign
+silent
+silk
+silly
+silver
+similar
+simple
+since
+sing
+siren
+sister
+situate
+six
+size
+skate
+sketch
+ski
+skill
+skin
+skirt
+skull
+slab
+slam
+sleep
+slender
+slice
+slide
+slight
+slim
+slogan
+slot
+slow
+slush
+small
+smart
+smile
+smoke
+smooth
+snack
+snake
+snap
+sniff
+snow
+soap
+soccer
+social
+sock
+soda
+soft
+solar
+soldier
+solid
+solution
+solve
+someone
+song
+soon
+sorry
+sort
+soul
+sound
+soup
+source
+south
+space
+spare
+spatial
+spawn
+speak
+special
+speed
+spell
+spend
+sphere
+spice
+spider
+spike
+spin
+spirit
+split
+spoil
+sponsor
+spoon
+sport
+spot
+spray
+spread
+spring
+spy
+square
+squeeze
+squirrel
+stable
+stadium
+staff
+stage
+stairs
+stamp
+stand
+start
+state
+stay
+steak
+steel
+stem
+step
+stereo
+stick
+still
+sting
+stock
+stomach
+stone
+stool
+story
+stove
+strategy
+street
+strike
+strong
+struggle
+student
+stuff
+stumble
+style
+subject
+submit
+subway
+success
+such
+sudden
+suffer
+sugar
+suggest
+suit
+summer
+sun
+sunny
+sunset
+super
+supply
+supreme
+sure
+surface
+surge
+surprise
+surround
+survey
+suspect
+sustain
+swallow
+swamp
+swap
+swarm
+swear
+sweet
+swift
+swim
+swing
+switch
+sword
+symbol
+symptom
+syrup
+system
+table
+tackle
+tag
+tail
+talent
+talk
+tank
+tape
+target
+task
+taste
+tattoo
+taxi
+teach
+team
+tell
+ten
+tenant
+tennis
+tent
+term
+test
+text
+thank
+that
+theme
+then
+theory
+there
+they
+thing
+this
+thought
+three
+thrive
+throw
+thumb
+thunder
+ticket
+tide
+tiger
+tilt
+timber
+time
+tiny
+tip
+tired
+tissue
+title
+toast
+tobacco
+today
+toddler
+toe
+together
+toilet
+token
+tomato
+tomorrow
+tone
+tongue
+tonight
+tool
+tooth
+top
+topic
+topple
+torch
+tornado
+tortoise
+toss
+total
+tourist
+toward
+tower
+town
+toy
+track
+trade
+traffic
+tragic
+train
+transfer
+trap
+trash
+travel
+tray
+treat
+tree
+trend
+trial
+tribe
+trick
+trigger
+trim
+trip
+trophy
+trouble
+truck
+true
+truly
+trumpet
+trust
+truth
+try
+tube
+tuition
+tumble
+tuna
+tunnel
+turkey
+turn
+turtle
+twelve
+twenty
+twice
+twin
+twist
+two
+type
+typical
+ugly
+umbrella
+unable
+unaware
+uncle
+uncover
+under
+undo
+unfair
+unfold
+unhappy
+uniform
+unique
+unit
+universe
+unknown
+unlock
+until
+unusual
+unveil
+update
+upgrade
+uphold
+upon
+upper
+upset
+urban
+urge
+usage
+use
+used
+useful
+useless
+usual
+utility
+vacant
+vacuum
+vague
+valid
+valley
+valve
+van
+vanish
+vapor
+various
+vast
+vault
+vehicle
+velvet
+vendor
+venture
+venue
+verb
+verify
+version
+very
+vessel
+veteran
+viable
+vibrant
+vicious
+victory
+video
+view
+village
+vintage
+violin
+virtual
+virus
+visa
+visit
+visual
+vital
+vivid
+vocal
+voice
+void
+volcano
+volume
+vote
+voyage
+wage
+wagon
+wait
+walk
+wall
+walnut
+want
+warfare
+warm
+warrior
+wash
+wasp
+waste
+water
+wave
+way
+wealth
+weapon
+wear
+weasel
+weather
+web
+wedding
+weekend
+weird
+welcome
+west
+wet
+whale
+what
+wheat
+wheel
+when
+where
+whip
+whisper
+wide
+width
+wife
+wild
+will
+win
+window
+wine
+wing
+wink
+winner
+winter
+wire
+wisdom
+wise
+wish
+witness
+wolf
+woman
+wonder
+wood
+wool
+word
+work
+world
+worry
+worth
+wrap
+wreck
+wrestle
+wrist
+write
+wrong
+yard
+year
+yellow
+you
+young
+youth
+zebra
+zero
+zone
+zoo
+</script>
+<script>
+"use strict";
+(() => {
+  // ------------------------------------------------------------------ bytes
+  const te = new TextEncoder();
+  const subtle = globalThis.crypto && crypto.subtle;
+  const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  const unhex = (s) => {
+    if (s.length % 2 || /[^0-9a-f]/i.test(s)) throw new Error("bad hex");
+    return Uint8Array.from(s.match(/../g) || [], (h) => parseInt(h, 16));
+  };
+  const concat = (...parts) => {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let i = 0;
+    for (const p of parts) { out.set(p, i); i += p.length; }
+    return out;
+  };
+  const b64urlDecode = (s) => {
+    const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
+    return Uint8Array.from(b, (c) => c.charCodeAt(0));
+  };
+  const sha256 = async (b) => new Uint8Array(await subtle.digest("SHA-256", b));
+  const hmac512 = async (key, data) => {
+    const k = await subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
+    return new Uint8Array(await subtle.sign("HMAC", k, data));
+  };
+
+  // ------------------------------------------------------------------ networks
+  const NETWORKS = {
+    mainnet: { hrp: "haruhi", coinType: 1031 },
+    testnet: { hrp: "testhrh", coinType: 1 },
+  };
+  const ATOMS_PER_COIN = 100000000n;
+  const MIN_FEE_ATOMS = 1000n;
+
+  // ------------------------------------------------------------------ BIP-39
+  const WORDLIST_SHA256 = "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda";
+  const WORDS = document.getElementById("wordlist").textContent.trim().split("\n");
+  const WORD_INDEX = new Map(WORDS.map((w, i) => [w, i]));
+
+  const normalizePhrase = (m) => m.normalize("NFKD").toLowerCase().trim().split(/\s+/).join(" ");
+
+  async function entropyToMnemonic(entropy) {
+    if (![16, 20, 24, 28, 32].includes(entropy.length)) throw new Error("bad entropy length");
+    const csBits = entropy.length / 4;
+    const cs = BigInt((await sha256(entropy))[0] >> (8 - csBits));
+    let n = (BigInt("0x" + hex(entropy)) << BigInt(csBits)) | cs;
+    const count = (entropy.length * 8 + csBits) / 11;
+    const out = [];
+    for (let i = 0; i < count; i++) { out.unshift(WORDS[Number(n & 0x7ffn)]); n >>= 11n; }
+    return out.join(" ");
+  }
+
+  async function mnemonicToEntropy(mnemonic) {
+    const parts = normalizePhrase(mnemonic).split(" ");
+    if (![12, 15, 18, 21, 24].includes(parts.length)) throw new Error("A seed phrase has 12, 15, 18, 21 or 24 words (got " + parts.length + ").");
+    let n = 0n;
+    for (const w of parts) {
+      if (!WORD_INDEX.has(w)) throw new Error("Not a BIP-39 word: “" + w + "”");
+      n = (n << 11n) | BigInt(WORD_INDEX.get(w));
+    }
+    const csBits = (parts.length * 11) / 33;
+    const entBytes = (parts.length * 11 - csBits) / 8;
+    const entropy = unhex((n >> BigInt(csBits)).toString(16).padStart(entBytes * 2, "0"));
+    const expected = BigInt((await sha256(entropy))[0] >> (8 - csBits));
+    if ((n & ((1n << BigInt(csBits)) - 1n)) !== expected) throw new Error("Checksum does not match: a word is wrong or out of order.");
+    return entropy;
+  }
+
+  async function mnemonicToSeed(mnemonic, passphrase = "") {
+    await mnemonicToEntropy(mnemonic);
+    const k = await subtle.importKey("raw", te.encode(normalizePhrase(mnemonic)), "PBKDF2", false, ["deriveBits"]);
+    const salt = te.encode("mnemonic" + passphrase.normalize("NFKD"));
+    return new Uint8Array(await subtle.deriveBits({ name: "PBKDF2", salt, iterations: 2048, hash: "SHA-512" }, k, 512));
+  }
+
+  // ------------------------------------------------------------------ SLIP-0010 (Ed25519)
+  const HARDENED = 0x80000000;
+  async function masterKey(seed) {
+    const i = await hmac512(te.encode("ed25519 seed"), seed);
+    return [i.slice(0, 32), i.slice(32)];
+  }
+  function parsePath(path) {
+    const parts = path.trim().split("/");
+    if (parts[0] !== "m") throw new Error("path must start with m");
+    return parts.slice(1).map((p) => {
+      if (!/^\d+['hH]$/.test(p)) throw new Error("every path step must be hardened");
+      const n = Number(p.slice(0, -1));
+      if (n >= HARDENED) throw new Error("path index out of range");
+      return n + HARDENED;
+    });
+  }
+  async function derivePrivateKey(seed, path) {
+    let [key, chain] = await masterKey(seed);
+    for (const index of parsePath(path)) {
+      const idx = new Uint8Array(4);
+      new DataView(idx.buffer).setUint32(0, index, false);
+      const i = await hmac512(chain, concat(new Uint8Array([0]), key, idx));
+      key = i.slice(0, 32); chain = i.slice(32);
+    }
+    return key;
+  }
+  const accountPath = (coinType, account) => `m/44'/${coinType}'/${account}'`;
+
+  // ------------------------------------------------------------------ Ed25519 (WebCrypto)
+  const PKCS8_ED25519 = unhex("302e020100300506032b657004220420");
+  async function keypair(priv) {
+    const key = await subtle.importKey("pkcs8", concat(PKCS8_ED25519, priv), { name: "Ed25519" }, true, ["sign"]);
+    const jwk = await subtle.exportKey("jwk", key);
+    return { key, priv, pub: b64urlDecode(jwk.x) };
+  }
+  const sign = async (kp, msg) => new Uint8Array(await subtle.sign({ name: "Ed25519" }, kp.key, msg));
+
+  // ------------------------------------------------------------------ bech32 addresses
+  const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+  function polymod(values) {
+    const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+    let chk = 1;
+    for (const v of values) {
+      const b = chk >>> 25;
+      chk = (((chk & 0x1ffffff) << 5) ^ v) >>> 0;
+      for (let i = 0; i < 5; i++) if ((b >>> i) & 1) chk = (chk ^ GEN[i]) >>> 0;
+    }
+    return chk;
+  }
+  const hrpExpand = (hrp) => [...[...hrp].map((c) => c.charCodeAt(0) >> 5), 0, ...[...hrp].map((c) => c.charCodeAt(0) & 31)];
+  function convertBits(data, from, to, pad) {
+    let acc = 0, bits = 0; const out = []; const maxv = (1 << to) - 1;
+    for (const v of data) {
+      if (v < 0 || v >> from) return null;
+      acc = (acc << from) | v; bits += from;
+      while (bits >= to) { bits -= to; out.push((acc >> bits) & maxv); }
+    }
+    if (pad) { if (bits) out.push((acc << (to - bits)) & maxv); }
+    else if (bits >= from || ((acc << (to - bits)) & maxv)) return null;
+    return out;
+  }
+  function bech32Encode(hrp, data) {
+    const pm = polymod([...hrpExpand(hrp), ...data, 0, 0, 0, 0, 0, 0]) ^ 1;
+    const checksum = [0, 1, 2, 3, 4, 5].map((i) => (pm >>> (5 * (5 - i))) & 31);
+    return hrp + "1" + [...data, ...checksum].map((d) => CHARSET[d]).join("");
+  }
+  function decodeAddress(hrpExpected, addr) {
+    if ([...addr].some((c) => c.charCodeAt(0) < 33 || c.charCodeAt(0) > 126)) return null;
+    if (addr.toLowerCase() !== addr && addr.toUpperCase() !== addr) return null;
+    addr = addr.toLowerCase();
+    const pos = addr.lastIndexOf("1");
+    if (pos < 1 || pos + 7 > addr.length || addr.length > 90) return null;
+    const data = [...addr.slice(pos + 1)].map((c) => CHARSET.indexOf(c));
+    if (data.includes(-1)) return null;
+    if (addr.slice(0, pos) !== hrpExpected) return null;
+    if (polymod([...hrpExpand(hrpExpected), ...data]) !== 1) return null;
+    const payload = data.slice(0, -6);
+    if (!payload.length || payload[0] !== 0) return null;
+    const prog = convertBits(payload.slice(1), 5, 8, false);
+    return prog && prog.length === 20 ? Uint8Array.from(prog) : null;
+  }
+  async function pubkeyToAddress(hrp, pub) {
+    const prog = (await sha256(pub)).slice(0, 20);
+    return bech32Encode(hrp, [0, ...convertBits(prog, 8, 5, true)]);
+  }
+
+  async function deriveAccount(seed, net, account) {
+    const n = NETWORKS[net];
+    const path = accountPath(n.coinType, account);
+    const kp = await keypair(await derivePrivateKey(seed, path));
+    return { path, kp, address: await pubkeyToAddress(n.hrp, kp.pub) };
+  }
+
+  // ------------------------------------------------------------------ transfers
+  // Matches Python's json.dumps(float): integral floats keep ".0".
+  const pyFloat = (x) => {
+    if (!Number.isFinite(x)) throw new Error("bad number");
+    const s = String(x);
+    if (/e/i.test(s)) throw new Error("timestamp out of range");
+    return Number.isInteger(x) ? s + ".0" : s;
+  };
+  function signingPayload(t) {
+    // Keys in sorted order, no spaces: same bytes as the node's TransferTx.signing_payload().
+    return "{" + [
+      `"atoms":${t.atoms}`,
+      `"created_at":${pyFloat(t.created_at)}`,
+      `"fee_atoms":${t.fee_atoms}`,
+      `"from_address":${JSON.stringify(t.from_address)}`,
+      `"nonce":${t.nonce}`,
+      `"public_key_hex":${JSON.stringify(t.public_key_hex)}`,
+      `"to_address":${JSON.stringify(t.to_address)}`,
+    ].join(",") + "}";
+  }
+  async function signTransfer(kp, t) {
+    const payload = te.encode(signingPayload(t));
+    const sig = await sign(kp, payload);
+    const txid = hex(await sha256(concat(payload, sig)));
+    return {
+      txid, from_address: t.from_address, to_address: t.to_address, atoms: t.atoms, fee_atoms: t.fee_atoms,
+      nonce: t.nonce, public_key_hex: t.public_key_hex, signature_hex: hex(sig), created_at: t.created_at,
+    };
+  }
+  function parseCoins(s, what) {
+    s = String(s).trim();
+    const m = /^(\d+)(?:\.(\d{1,8}))?$/.exec(s);
+    if (!m) throw new Error(what + " must be a number of HRH with at most 8 decimals.");
+    const atoms = BigInt(m[1]) * ATOMS_PER_COIN + BigInt((m[2] || "").padEnd(8, "0"));
+    if (atoms > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error(what + " is too large.");
+    return atoms;
+  }
+  const fmtCoins = (atoms) => {
+    const a = BigInt(atoms);
+    const frac = (a % ATOMS_PER_COIN).toString().padStart(8, "0").replace(/0+$/, "");
+    return (a / ATOMS_PER_COIN).toString() + (frac ? "." + frac : "") + " HRH";
+  };
+
+  // ------------------------------------------------------------------ self-test
+  const VECTORS = JSON.parse(document.getElementById("vectors").textContent);
+  async function selfTest() {
+    const results = [];
+    const check = async (name, fn) => {
+      try { results.push([name, (await fn()) === true]); } catch (e) { results.push([name + " (" + e.message + ")", false]); }
+    };
+    if (!subtle) return [["WebCrypto available (needs a modern browser)", false]];
+    await check("BIP-39 word list matches the official list", async () =>
+      WORDS.length === 2048 && hex(await sha256(te.encode(WORDS.join("\n") + "\n"))) === WORDLIST_SHA256);
+    await check("BIP-39 vector: entropy 00…00 -> abandon … about", async () =>
+      (await entropyToMnemonic(new Uint8Array(16))) === VECTORS.mnemonic);
+    await check("BIP-39 vector: seed with passphrase TREZOR", async () =>
+      hex(await mnemonicToSeed(VECTORS.mnemonic, "TREZOR")) ===
+      "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04");
+    await check("BIP-39 rejects a bad checksum", async () => {
+      try { await mnemonicToEntropy(Array(12).fill("abandon").join(" ")); return false; } catch { return true; }
+    });
+    await check("SLIP-0010 vector 1: master key and m/0'", async () => {
+      const seed = unhex("000102030405060708090a0b0c0d0e0f");
+      const [k, c] = await masterKey(seed);
+      return hex(k) === "2b4be7f19ee27bbf30c667b642d5f4aa69fd169872f8fc3059c08ebae2eb19e7" &&
+        hex(c) === "90046a93de5380a72b5e45010748567d5ea02bbf6522f979e05c0d8d8ca9fffb" &&
+        hex(await derivePrivateKey(seed, "m/0'")) === "68e0fe46dfb67e368c75379acec591dad19df3cde26e63b93a8e704f1dade7a3";
+    });
+    await check("Ed25519 key support (WebCrypto)", async () => (await keypair(new Uint8Array(32))).pub.length === 32);
+    const seed = await mnemonicToSeed(VECTORS.mnemonic, VECTORS.passphrase).catch(() => null);
+    for (const a of VECTORS.accounts) {
+      await check(`Haruhi vector: ${a.path} -> ${a.address.slice(0, 14)}…`, async () => {
+        const kp = await keypair(await derivePrivateKey(seed, a.path));
+        return (!a.private_key_hex || hex(kp.priv) === a.private_key_hex) && hex(kp.pub) === a.public_key_hex &&
+          (await pubkeyToAddress(NETWORKS[a.network].hrp, kp.pub)) === a.address &&
+          decodeAddress(NETWORKS[a.network].hrp, a.address) !== null;
+      });
+    }
+    await check("Haruhi vector: signed transfer (payload, signature, txid)", async () => {
+      const v = VECTORS.transfer;
+      const kp = await keypair(await derivePrivateKey(seed, v.from_path));
+      const t = { ...v, public_key_hex: hex(kp.pub) };
+      if (signingPayload(t) !== v.signing_payload) return false;
+      const tx = await signTransfer(kp, t);
+      return tx.signature_hex === v.signature_hex && tx.txid === v.txid;
+    });
+    await check("Address check rejects a wrong network and a typo", async () => {
+      const a = VECTORS.accounts[0].address;
+      return decodeAddress("testhrh", a) === null && decodeAddress("haruhi", a.slice(0, -1) + (a.endsWith("q") ? "p" : "q")) === null;
+    });
+    return results;
+  }
+
+  // ------------------------------------------------------------------ UI
+  const $ = (id) => document.getElementById(id);
+  const show = (el, on = true) => el.classList.toggle("hidden", !on);
+  const setErr = (el, msg) => { el.textContent = msg || ""; show(el, !!msg); };
+  const addrRows = (tbody, accts) => {
+    tbody.replaceChildren(...accts.map((a) => {
+      const tr = document.createElement("tr");
+      const p = document.createElement("td"); p.className = "mono"; p.textContent = a.path;
+      const ad = document.createElement("td"); ad.className = "addr"; ad.textContent = a.address;
+      tr.append(p, ad); return tr;
+    }));
+  };
+  const wordItems = (ol, phrase) => ol.replaceChildren(...phrase.split(" ").map((w) => {
+    const li = document.createElement("li"); li.textContent = w; return li;
+  }));
+
+  // tabs
+  document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    document.querySelectorAll("section.tab").forEach((s) => s.classList.toggle("active", s.id === "tab-" + b.dataset.tab));
+  }));
+
+  // network banner
+  const netBanner = () => {
+    const el = $("net-banner");
+    show(el, true);
+    if (navigator.onLine) {
+      el.className = "banner warn";
+      el.textContent = "This computer is online. For cold storage, save this file, disconnect from the network (or use a computer that never connects), then reopen it.";
+    } else {
+      el.className = "banner ok";
+      el.textContent = "Offline. Good: this is how cold storage should be done.";
+    }
+  };
+  addEventListener("online", netBanner); addEventListener("offline", netBanner); netBanner();
+
+  // new wallet
+  let current = null; // { phrase, net, accts } for printing
+  $("new-go").addEventListener("click", async () => {
+    const words = Number($("new-words").value);
+    const entropy = crypto.getRandomValues(new Uint8Array(words === 24 ? 32 : 16));
+    const phrase = await entropyToMnemonic(entropy);
+    entropy.fill(0);
+    const net = $("new-net").value;
+    const seed = await mnemonicToSeed(phrase);
+    const accts = [];
+    for (let i = 0; i < Number($("new-count").value); i++) accts.push(await deriveAccount(seed, net, i));
+    seed.fill(0);
+    current = { phrase, net, accts };
+    wordItems($("new-words-list"), phrase);
+    addrRows($("new-addr"), accts);
+    show($("new-out"));
+  });
+  $("new-clear").addEventListener("click", () => {
+    current = null;
+    $("new-words-list").replaceChildren(); $("new-addr").replaceChildren();
+    $("paper-words").replaceChildren(); $("paper-addr").replaceChildren();
+    show($("new-out"), false);
+  });
+  $("new-print").addEventListener("click", () => {
+    if (!current) return;
+    $("paper-meta").textContent = `Network: ${current.net}. Created ${new Date().toISOString().slice(0, 10)}. ${current.phrase.split(" ").length} words.`;
+    wordItems($("paper-words"), current.phrase);
+    addrRows($("paper-addr"), current.accts);
+    print();
+  });
+
+  // check
+  $("chk-go").addEventListener("click", async () => {
+    setErr($("chk-err")); show($("chk-out"), false);
+    try {
+      const seed = await mnemonicToSeed($("chk-phrase").value);
+      const accts = [];
+      for (let i = 0; i < Number($("chk-count").value); i++) accts.push(await deriveAccount(seed, $("chk-net").value, i));
+      seed.fill(0);
+      addrRows($("chk-addr"), accts); show($("chk-out"));
+    } catch (e) { setErr($("chk-err"), e.message); }
+  });
+  $("chk-clear").addEventListener("click", () => {
+    $("chk-phrase").value = ""; $("chk-addr").replaceChildren(); show($("chk-out"), false); setErr($("chk-err"));
+  });
+
+  // sign
+  let signed = null;
+  const fromPreview = async () => {
+    $("sig-from").textContent = "";
+    try {
+      const acct = Number($("sig-acct").value);
+      if (!Number.isInteger(acct) || acct < 0 || acct >= HARDENED) return;
+      const seed = await mnemonicToSeed($("sig-phrase").value);
+      const a = await deriveAccount(seed, $("sig-net").value, acct);
+      seed.fill(0);
+      $("sig-from").textContent = "From: " + a.address + "  (" + a.path + ")";
+    } catch { /* incomplete phrase: say nothing yet */ }
+  };
+  ["sig-phrase", "sig-acct", "sig-net"].forEach((id) => $(id).addEventListener("change", fromPreview));
+  $("sig-go").addEventListener("click", async () => {
+    setErr($("sig-err")); show($("sig-out"), false); signed = null;
+    try {
+      const net = $("sig-net").value;
+      const acct = Number($("sig-acct").value);
+      if (!Number.isInteger(acct) || acct < 0 || acct >= HARDENED) throw new Error("Account must be a whole number from 0.");
+      const nonce = Number($("sig-nonce").value);
+      if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Nonce must be a whole number from 0. Look it up on an online node.");
+      const to = $("sig-to").value.trim().toLowerCase();
+      if (!decodeAddress(NETWORKS[net].hrp, to)) throw new Error(`Not a valid ${net} address (expected ${NETWORKS[net].hrp}1…). Check every character.`);
+      const atoms = parseCoins($("sig-amount").value, "Amount");
+      if (atoms <= 0n) throw new Error("Amount must be more than 0.");
+      const fee = parseCoins($("sig-fee").value, "Fee");
+      if (fee < MIN_FEE_ATOMS) throw new Error("Fee is below the network minimum of 0.00001 HRH.");
+      const seed = await mnemonicToSeed($("sig-phrase").value);
+      const from = await deriveAccount(seed, net, acct);
+      seed.fill(0);
+      if (from.address === to) throw new Error("Sending to the same address is not allowed.");
+      let created = Date.now() / 1000;
+      signed = await signTransfer(from.kp, {
+        from_address: from.address, to_address: to, atoms: Number(atoms), fee_atoms: Number(fee),
+        nonce, public_key_hex: hex(from.kp.pub), created_at: created,
+      });
+      const rows = [["From", from.address], ["To", to], ["Amount", fmtCoins(atoms)], ["Fee (burned)", fmtCoins(fee)],
+        ["Total", fmtCoins(atoms + fee)], ["Nonce", String(nonce)], ["Network", net], ["txid", signed.txid]];
+      $("sig-summary").replaceChildren(...rows.map(([k, v]) => {
+        const tr = document.createElement("tr");
+        const th = document.createElement("th"); th.textContent = k;
+        const td = document.createElement("td"); td.className = "addr"; td.textContent = v;
+        tr.append(th, td); return tr;
+      }));
+      $("sig-json").textContent = txJson(signed);
+      show($("sig-out"));
+    } catch (e) { setErr($("sig-err"), e.message); }
+  });
+  // JSON for the node; created_at keeps the exact digits that were signed.
+  const txJson = (tx) => JSON.stringify(tx, null, 2).replace(/("created_at": )[^\n,}]+/, "$1" + pyFloat(tx.created_at));
+  $("sig-download").addEventListener("click", () => {
+    if (!signed) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txJson(signed) + "\n"], { type: "application/json" }));
+    a.download = "tx.json"; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  $("sig-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("sig-json").textContent); $("sig-copy").textContent = "Copied"; }
+    catch { getSelection().selectAllChildren($("sig-json")); $("sig-copy").textContent = "Selected: press Ctrl+C"; }
+    setTimeout(() => { $("sig-copy").textContent = "Copy"; }, 2000);
+  });
+  $("sig-clear").addEventListener("click", () => {
+    ["sig-phrase", "sig-to", "sig-amount"].forEach((id) => { $(id).value = ""; });
+    $("sig-from").textContent = ""; signed = null; show($("sig-out"), false); setErr($("sig-err"));
+  });
+
+  // run the self-test, then enable the buttons
+  selfTest().then((results) => {
+    $("checks").replaceChildren(...results.map(([name, ok]) => {
+      const li = document.createElement("li"); li.className = ok ? "pass" : "fail"; li.textContent = name; return li;
+    }));
+    const allOk = results.length > 0 && results.every(([, ok]) => ok);
+    const b = $("test-banner");
+    if (allOk) {
+      b.className = "banner ok";
+      b.textContent = `Self-test passed (${results.length} checks against the reference vectors).`;
+      ["new-go", "chk-go", "sig-go"].forEach((id) => { $(id).disabled = false; });
+    } else {
+      b.className = "banner warn";
+      b.textContent = "Self-test FAILED. Do not use this file in this browser. See How it works for details.";
+    }
+  });
+})();
+</script>
+</body>
+</html>

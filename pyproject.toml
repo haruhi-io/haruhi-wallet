@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "haruhi-wallet"
+version = "0.1.0"
+description = "Wallet for Haruhi (HRH): BIP-39 seed phrases, SLIP-0010 Ed25519 keys at m/44'/1031'/n', bech32 haruhi1 addresses, signed transfers."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "cryptography>=43.0.0",
+    "pydantic>=2.9.0",
+    "httpx>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://haruhi.io"
+Source = "https://github.com/haruhi-io/haruhi-wallet"
+
+[project.scripts]
+haruhi-wallet = "haruhi_wallet.cli:main"
+
+[tool.setuptools]
+packages = ["haruhi_wallet"]
+
+[tool.setuptools.package-data]
+haruhi_wallet = ["bip39_english.txt"]

@@ -1,0 +1,39 @@
+{
+  "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  "passphrase": "",
+  "accounts": [
+    {
+      "network": "mainnet",
+      "path": "m/44'/1031'/0'",
+      "private_key_hex": "e19c5f50e599d412a4d116f4709f18bf9f8714a2fe5b9dfb67ed919ea2ad0271",
+      "public_key_hex": "7a77356f2b881ab4c55d3b109d75ea8c9a3f9cabf2c6ed3abf3906f898d8d848",
+      "address": "haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j"
+    },
+    {
+      "network": "mainnet",
+      "path": "m/44'/1031'/1'",
+      "private_key_hex": "c4ae066becade3cb8fd4b87cba649ed6b84768b13ddbaa040ed0e3336945172c",
+      "public_key_hex": "8b153470e18fe3d60437364f64de459eec62cf06752fb9cd5810cf56ec2e6559",
+      "address": "haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma"
+    },
+    {
+      "network": "testnet",
+      "path": "m/44'/1'/0'",
+      "public_key_hex": "a90eb13b090b4d4c31ae87d864c0cd8db25216c90c1ce6fbfd04ddcdc1aa110c",
+      "address": "testhrh1qfd6fmfa6ykka7qtqrmsk6wm0rmkfvqlan9z6ph"
+    }
+  ],
+  "transfer": {
+    "network": "mainnet",
+    "from_path": "m/44'/1031'/0'",
+    "from_address": "haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j",
+    "to_address": "haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma",
+    "atoms": 150000000,
+    "fee_atoms": 1000,
+    "nonce": 0,
+    "created_at": 1763500000.125,
+    "signing_payload": "{\"atoms\":150000000,\"created_at\":1763500000.125,\"fee_atoms\":1000,\"from_address\":\"haruhi1qehl7hqvxyn32q7ks3nw4kgf9zm32cp3vl5946j\",\"nonce\":0,\"public_key_hex\":\"7a77356f2b881ab4c55d3b109d75ea8c9a3f9cabf2c6ed3abf3906f898d8d848\",\"to_address\":\"haruhi1qa7hn9ndz9ztk0z0cl9rxw6caszx8xjst9tspma\"}",
+    "signature_hex": "e0022503f7930ff4faf7c357c5e95d037068e1d135eef91b2e8ed6af50de9127727c4ac518ef29427cccbb548476b57a7021f0657509417ade846932c9029c07",
+    "txid": "0728b3607840c9dfa74f3c73ff91740a271bd80153d007c0523a541fa846000e"
+  }
+}
