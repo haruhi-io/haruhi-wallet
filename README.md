@@ -13,7 +13,9 @@ It comes in two forms that derive the same keys and addresses:
 
 ## Offline HTML wallet (cold storage)
 
-1. Download `haruhi-wallet.html` from a tagged release of this repository.
+1. Download `haruhi-wallet.html` and `SHA256SUMS` from the
+   [latest release](https://github.com/haruhi-io/haruhi-wallet/releases/latest),
+   and check the file before you use it (see [Verify the download](#verify-the-download)).
 2. Move it to a computer that is offline (or will never connect), and open it in
    a current browser (Chrome, Edge, Firefox or Safari).
 3. The page runs a self-test against the reference vectors below every time it
@@ -27,6 +29,26 @@ It comes in two forms that derive the same keys and addresses:
    carry the signed JSON back to broadcast it:
    `curl -X POST <node>/tx/send -H "Content-Type: application/json" -d @tx.json`.
    The signed JSON contains no secret.
+
+### Verify the download
+
+Put `haruhi-wallet.html` and `SHA256SUMS` in the same folder, then run:
+
+```bash
+sha256sum --ignore-missing -c SHA256SUMS          # Linux
+shasum -a 256 --ignore-missing -c SHA256SUMS      # macOS
+```
+
+```powershell
+# Windows PowerShell: the two hashes must be identical
+(Get-FileHash haruhi-wallet.html -Algorithm SHA256).Hash.ToLower()
+Select-String haruhi-wallet.html SHA256SUMS
+```
+
+The output must say `haruhi-wallet.html: OK` (or show the same hash twice). If it
+doesn't, delete the file and don't use it. The file in a release is byte-for-byte
+the one in the git tag of the same version, so you can also compare it with
+`git show v<version>:haruhi-wallet.html`.
 
 The page's Content Security Policy is `connect-src 'none'`, so it cannot send
 anything anywhere, even if it is opened online. It uses the browser's WebCrypto
